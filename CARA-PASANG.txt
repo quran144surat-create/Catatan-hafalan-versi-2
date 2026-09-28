@@ -1,0 +1,26 @@
+CATATAN HAFALAN — PWA
+
+ISI FOLDER (unggah semuanya ke satu folder yang sama):
+index.html, manifest.webmanifest, sw.js, icon-192.png, icon-512.png,
+icon-maskable-512.png, apple-touch-icon.png, favicon-32.png
+
+UNGGAH KE GITHUB PAGES
+1. Buat repositori baru, unggah semua file di atas ke akar repositori.
+2. Settings > Pages > Deploy from a branch > main / (root) > Save.
+3. Buka alamat https://<akun>.github.io/<repositori>/ lewat HTTPS.
+
+PASANG DI ANDROID (Chrome)
+1. Buka alamat app di Chrome.
+2. Menu titik tiga > Tambahkan ke layar utama (atau Instal aplikasi).
+3. Konfirmasi Instal.
+
+PASANG DI IPHONE (Safari)
+1. Buka alamat app di Safari (harus Safari).
+2. Tombol Bagikan > Tambahkan ke Layar Utama.
+3. Tambah.
+
+PENTING: buka app dari ikon di layar utama agar tampil layar penuh.
+Bila dibuka lewat browser, bilah alamat tetap muncul.
+
+Saat mengganti isi app, naikkan VERSION di sw.js (mis. v1 jadi v2) agar HP memuat versi baru.
+Kunjungi sekali saat online agar font dan pustaka PDF/Excel ikut tersimpan untuk offline.
