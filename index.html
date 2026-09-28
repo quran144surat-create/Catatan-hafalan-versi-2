@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>Catatan Hafalan</title>
-<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%20%22Catatan%20Hafalan%22%2C%20%22short_name%22%3A%20%22Hafalan%22%2C%20%22description%22%3A%20%22Catat%20%26%20pantau%20hafalan%20Al-Quran%20dan%20matan.%20Bisa%20dibuka%20tanpa%20koneksi%20internet.%22%2C%20%22start_url%22%3A%20%22.%22%2C%20%22scope%22%3A%20%22.%22%2C%20%22display%22%3A%20%22standalone%22%2C%20%22orientation%22%3A%20%22portrait%22%2C%20%22background_color%22%3A%20%22%23F2F1E7%22%2C%20%22theme_color%22%3A%20%22%230E4A3B%22%2C%20%22icons%22%3A%20%5B%7B%22src%22%3A%20%22data%3Aimage/svg%2Bxml%2C%253Csvg%2520xmlns%253D%2522http%253A//www.w3.org/2000/svg%2522%2520viewBox%253D%25220%25200%2520192%2520192%2522%253E%253Crect%2520width%253D%2522192%2522%2520height%253D%2522192%2522%2520rx%253D%252242%2522%2520fill%253D%2522%25230E4A3B%2522/%253E%253Cpath%2520d%253D%2522M124%252040a56%252056%25200%25201%25200%25200%2520112%252044%252044%25200%25201%25201%25200-112z%2522%2520fill%253D%2522%2523DDBB63%2522/%253E%253C/svg%253E%22%2C%20%22sizes%22%3A%20%22any%22%2C%20%22type%22%3A%20%22image/svg%2Bxml%22%2C%20%22purpose%22%3A%20%22any%22%7D%2C%20%7B%22src%22%3A%20%22data%3Aimage/svg%2Bxml%2C%253Csvg%2520xmlns%253D%2522http%253A//www.w3.org/2000/svg%2522%2520viewBox%253D%25220%25200%2520192%2520192%2522%253E%253Crect%2520width%253D%2522192%2522%2520height%253D%2522192%2522%2520rx%253D%252242%2522%2520fill%253D%2522%25230E4A3B%2522/%253E%253Cpath%2520d%253D%2522M124%252040a56%252056%25200%25201%25200%25200%2520112%252044%252044%25200%25201%25201%25200-112z%2522%2520fill%253D%2522%2523DDBB63%2522/%253E%253C/svg%253E%22%2C%20%22sizes%22%3A%20%22any%22%2C%20%22type%22%3A%20%22image/svg%2Bxml%22%2C%20%22purpose%22%3A%20%22maskable%22%7D%5D%7D">
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20192%20192%22%3E%3Crect%20width%3D%22192%22%20height%3D%22192%22%20rx%3D%2242%22%20fill%3D%22%230E4A3B%22/%3E%3Cpath%20d%3D%22M124%2040a56%2056%200%201%200%200%20112%2044%2044%200%201%201%200-112z%22%20fill%3D%22%23DDBB63%22/%3E%3C/svg%3E">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20192%20192%22%3E%3Crect%20width%3D%22192%22%20height%3D%22192%22%20rx%3D%2242%22%20fill%3D%22%230E4A3B%22/%3E%3Cpath%20d%3D%22M124%2040a56%2056%200%201%200%200%20112%2044%2044%200%201%201%200-112z%22%20fill%3D%22%23DDBB63%22/%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <meta name="theme-color" content="#0E4A3B">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -8986,6 +8986,10 @@ if(!window.__HF_STANDALONE__){
 (function(){
   if(!('serviceWorker' in navigator)||window.__HF_STANDALONE__)return;
   navigator.serviceWorker.register('./sw.js').catch(function(){});
+})();
+(function(){
+  // Minta browser agar tidak menghapus data otomatis saat memori penuh (tidak melindungi dari hapus manual)
+  try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(e){}
 })();
 (function(){
   var lastState=navigator.onLine;
