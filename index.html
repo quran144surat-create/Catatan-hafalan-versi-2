@@ -495,6 +495,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 /* History */
 .hrow{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
 .hrow:first-of-type{border-top:0}
+.h-act{display:flex;align-items:center}
 .h-d{font-weight:600;font-size:14.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .h-r{color:var(--muted);font-size:14px}
 .h-n{font-size:13px;color:var(--muted);text-align:right}
@@ -1444,6 +1445,7 @@ button.ag-card:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
   </div>
 </div>
 
+<dialog id="edDlg" aria-labelledby="edTitle"><div class="dlg"><h2 id="edTitle"></h2><div id="edBody"></div><div class="res" id="edRes" style="margin:12px 0"></div><div class="dlg-actions"><button class="btn ghost" type="button" id="edCancel">Batal</button><button class="btn primary" type="button" id="edSave">Simpan</button></div></div></dialog>
 <dialog id="dlg" aria-labelledby="dlgTitle"><div class="dlg"><h2 id="dlgTitle"></h2><p id="dlgText"></p><div class="dlg-actions" id="dlgActions"></div></div></dialog>
 
 <!-- Tahap 1: latar redup manual untuk dialog non-modal (santriDlg, mdlg) —
@@ -4229,9 +4231,139 @@ function renderQHist(){
   html+=list.slice(0,ui.qShown).map(e=>
     '<div class="hrow"><div><div class="h-d">'+esc(fmtDay(e.date))+' '+e.date.slice(0,4)+' '+murChip(e)+'</div><div class="h-r">'+esc(qRangeText(e))+'</div><div class="h-r h-r2">'+esc(qSubText(e))+'</div></div>'+
     '<div class="h-n">'+(e.mode==='ayat'?'<b>'+nf.format(e.ayat)+'</b>ayat<div class="h-n2">sekitar '+fmtN(e.pages)+' hal</div>':'<b>'+e.pages+'</b>hal<div class="h-n2">'+nf.format(e.ayat)+' ayat</div>')+'</div>'+
-    '<button class="icon-btn" type="button" data-del-q="'+esc(e.id)+'" aria-label="Hapus setoran">'+ICON.trash+'</button></div>').join('');
+    '<div class="h-act"><button class="icon-btn" type="button" data-edit-q="'+esc(e.id)+'" aria-label="Edit setoran">'+ICON.edit+'</button><button class="icon-btn" type="button" data-del-q="'+esc(e.id)+'" aria-label="Hapus setoran">'+ICON.trash+'</button></div></div>').join('');
   if(list.length>ui.qShown)html+='<button class="btn small more" type="button" id="qMore">Tampilkan lebih banyak</button>';
   $('qHist').innerHTML=html;
+}
+/* ---------- TAHAP 2: dialog edit setoran (Quran & matan) ---------- */
+const edDlg=$('edDlg');
+function edOpen(o){
+  $('edTitle').textContent=o.title;
+  $('edBody').innerHTML=o.html;
+  const res=$('edRes'),save=$('edSave');
+  const upd=()=>{
+    const v=o.validate();
+    res.className='res'+(v.state==='ok'?' ok':v.state==='error'?' err':'');
+    res.innerHTML=v.state==='ok'?v.html:esc(v.msg||'');
+    save.disabled=v.state!=='ok';
+    return v;
+  };
+  edDlg.oninput=upd;edDlg.onchange=upd;
+  save.onclick=()=>{const v=upd();if(v.state!=='ok')return;edDlg.close();o.onSave(v);};
+  $('edCancel').onclick=()=>edDlg.close();
+  upd();edDlg.showModal();
+}
+const edVal=id=>$(id).value;
+function edTypeSeg(cur,locked,lockNote){
+  if(locked)return `<p class="sub" style="margin:0 0 10px">${esc(lockNote)}</p>`;
+  return `<div class="seg" role="radiogroup" aria-label="Jenis setoran"><label><input type="radio" name="ed-type" value="baru"${cur==='baru'?' checked':''}><span>${esc(edTypeLabelBaru)}</span></label><label><input type="radio" name="ed-type" value="murajaah"${cur!=='baru'?' checked':''}><span>Muraja'ah</span></label></div>`;
+}
+let edTypeLabelBaru='Hafalan baru';
+function edGetType(cur,locked){
+  if(locked)return cur;
+  const r=document.querySelector('input[name="ed-type"]:checked');return r?r.value:cur;
+}
+function edOverlapQ(a1,a2,selfId){
+  const f=new Uint8Array(AYTOT+2);
+  S.quran.forEach(x=>{if(x.id===selfId||x.type!=='baru')return;for(let g=x.a1;g<=x.a2;g++)f[g]=1;});
+  let n=0;for(let g=a1;g<=a2;g++)n+=f[g];return n;
+}
+function editQuran(id){
+  const e=S.quran.find(x=>x.id===id);if(!e)return;
+  const ayat=e.mode==='ayat',locked=!!e.cat;
+  const old=Object.assign({},e);
+  const opts=sel=>SN.map((n,i)=>`<option value="${i+1}"${i+1===sel?' selected':''}>${i+1}. ${esc(n)}</option>`).join('');
+  const fld=(i,l,v,m,ph)=>`<div class="field"><label for="${i}">${l}</label><input class="input" id="${i}" inputmode="numeric" autocomplete="off" maxlength="${m}" placeholder="${ph}" value="${v}"></div>`;
+  const rng=ayat
+    ?`<div class="form-grid"><fieldset><legend>Mulai dari</legend><div class="pair wide"><div class="field"><label for="ed-ss">Surat</label><select class="input" id="ed-ss">${opts(e.ss)}</select></div>${fld('ed-sa','Ayat',e.sa,3,'Ayat')}</div></fieldset><fieldset><legend>Sampai</legend><div class="pair wide"><div class="field"><label for="ed-es">Surat</label><select class="input" id="ed-es">${opts(e.es)}</select></div>${fld('ed-ea','Ayat',e.ea,3,'Ayat')}</div></fieldset></div>`
+    :`<div class="form-grid"><fieldset><legend>Mulai dari</legend><div class="pair">${fld('ed-sj','Juz',e.sj,2,'1-30')}${fld('ed-sp','Halaman',e.sp,2,'Hal.')}</div></fieldset><fieldset><legend>Sampai</legend><div class="pair">${fld('ed-ej','Juz',e.ej,2,'1-30')}${fld('ed-ep','Halaman',e.ep,2,'Hal.')}</div></fieldset></div>`;
+  edTypeLabelBaru='Hafalan baru';
+  const html=edTypeSeg(e.type,locked,'Jenis setoran ini mengikuti kategori Mode Harian, jadi tidak bisa diubah di sini.')
+    +`<div class="field"><label for="ed-date">Tanggal</label><input class="input" type="date" id="ed-date" max="${todayS()}" value="${esc(e.date)}"></div>`+rng;
+  const validate=()=>{
+    const d=edVal('ed-date');
+    if(!d)return{state:'error',msg:'Pilih tanggal setoran.'};
+    if(d>todayS())return{state:'error',msg:'Tanggal setoran tidak boleh di masa depan.'};
+    const type=edGetType(e.type,locked);
+    let r;
+    if(ayat){
+      const ss=toInt(edVal('ed-ss')),es=toInt(edVal('ed-es')),sa=toInt(edVal('ed-sa')),ea=toInt(edVal('ed-ea'));
+      if(sa===null||ea===null)return{state:'partial',msg:'Lengkapi ayat mulai dan selesai.'};
+      if(Number.isNaN(sa)||Number.isNaN(ea))return{state:'error',msg:'Isi ayat dengan angka bulat, tanpa huruf atau tanda lain.'};
+      if(sa<1||sa>AY[ss-1])return{state:'error',msg:SN[ss-1]+' hanya punya '+AY[ss-1]+' ayat, jadi ayat mulai harus antara 1 dan '+AY[ss-1]+'.'};
+      if(ea<1||ea>AY[es-1])return{state:'error',msg:SN[es-1]+' hanya punya '+AY[es-1]+' ayat, jadi ayat selesai harus antara 1 dan '+AY[es-1]+'.'};
+      const a1=gAyah(ss,sa),a2=gAyah(es,ea);
+      if(a2<a1)return{state:'error',msg:'Posisi selesai ('+SN[es-1]+' '+ea+') lebih awal dari posisi mulai ('+SN[ss-1]+' '+sa+').'};
+      r={fields:{ss:ss,sa:sa,es:es,ea:ea},a1:a1,a2:a2,ayat:a2-a1+1,pages:pageEq(a1,a2)};
+      r.html='<div><span class="big">'+nf.format(r.ayat)+'</span>ayat</div><div class="sub2">'+esc(ayatRangeText(ss,sa,es,ea))+'</div>';
+    }else{
+      const sj=toInt(edVal('ed-sj')),sp=toInt(edVal('ed-sp')),ej=toInt(edVal('ed-ej')),ep=toInt(edVal('ed-ep'));
+      const vals=[sj,sp,ej,ep];
+      if(vals.some(v=>v===null))return{state:'partial',msg:'Lengkapi juz dan halaman mulai serta selesai.'};
+      if(vals.some(Number.isNaN))return{state:'error',msg:'Isi semua kolom dengan angka bulat, tanpa huruf atau tanda lain.'};
+      if(sj<1||sj>30)return{state:'error',msg:'Juz mulai harus antara 1 dan 30.'};
+      if(sp<1||sp>juzPages(sj))return{state:'error',msg:'Juz '+sj+' hanya punya '+juzPages(sj)+' halaman, jadi halaman mulai harus antara 1 dan '+juzPages(sj)+'.'};
+      if(ej<1||ej>30)return{state:'error',msg:'Juz selesai harus antara 1 dan 30.'};
+      if(ep<1||ep>juzPages(ej))return{state:'error',msg:'Juz '+ej+' hanya punya '+juzPages(ej)+' halaman, jadi halaman selesai harus antara 1 dan '+juzPages(ej)+'.'};
+      const pa=gp(sj,sp),pb=gp(ej,ep);
+      if(pb<pa)return{state:'error',msg:'Posisi selesai (Juz '+ej+' hal '+ep+') lebih awal dari posisi mulai (Juz '+sj+' hal '+sp+').'};
+      const a1=PS[pa],a2=PE[pb];
+      r={fields:{sj:sj,sp:sp,ej:ej,ep:ep},a1:a1,a2:a2,ayat:a2-a1+1,pages:pb-pa+1};
+      r.html='<div><span class="big">'+r.pages+'</span>halaman</div><div class="sub2">'+esc(pageRangeJuz(pa,pb))+'</div>';
+    }
+    const ov=type==='baru'?edOverlapQ(r.a1,r.a2,e.id):0;
+    if(ov)r.html+='<div class="note">'+ov+' ayat sudah tercatat sebagai hafalan baru oleh setoran lain.</div>';
+    r.state='ok';r.date=d;r.type=type;return r;
+  };
+  edOpen({title:'Edit setoran',html:html,validate:validate,onSave:v=>{
+    Object.assign(e,v.fields,{date:v.date,type:v.type});
+    deriveQ(e);memVer++;
+    updateQ();renderAll();
+    const newDoc=qDoc(e);
+    markDirty(qDoc(old),newDoc);
+    toastUndo('Setoran diperbarui',()=>{
+      Object.keys(e).forEach(k=>delete e[k]);Object.assign(e,old);
+      memVer++;updateQ();renderAll();markDirty(qDoc(old),newDoc);
+    });
+  }});
+}
+function editMatanEntry(id){
+  const e=S.matanLog.find(x=>x.id===id);if(!e)return;
+  const m=S.matan.find(x=>x.id===e.matanId);if(!m)return;
+  const old=Object.assign({},e);
+  edTypeLabelBaru='Hafalan baru';
+  const html=edTypeSeg(e.type,false,'')
+    +`<div class="field"><label for="ed-date">Tanggal</label><input class="input" type="date" id="ed-date" max="${todayS()}" value="${esc(e.date)}"></div>`
+    +`<div class="form-grid"><fieldset><legend>Bait</legend><div class="pair"><div class="field"><label for="ed-mf">Mulai</label><input class="input" id="ed-mf" inputmode="numeric" autocomplete="off" maxlength="5" value="${e.from}"></div><div class="field"><label for="ed-mt">Selesai</label><input class="input" id="ed-mt" inputmode="numeric" autocomplete="off" maxlength="5" value="${e.to}"></div></div></fieldset></div>`;
+  const validate=()=>{
+    const d=edVal('ed-date'),f=toInt(edVal('ed-mf')),t=toInt(edVal('ed-mt'));
+    if(f===null||t===null)return{state:'partial',msg:'Lengkapi bait mulai dan bait selesai.'};
+    if(Number.isNaN(f)||Number.isNaN(t))return{state:'error',msg:'Isi dengan angka bulat, tanpa huruf atau tanda lain.'};
+    if(f<1||f>m.total)return{state:'error',msg:'Bait mulai harus antara 1 dan '+m.total+' (jumlah bait matan ini).'};
+    if(t<1||t>m.total)return{state:'error',msg:'Bait selesai harus antara 1 dan '+m.total+' (jumlah bait matan ini).'};
+    if(t<f)return{state:'error',msg:'Bait selesai ('+t+') lebih kecil dari bait mulai ('+f+').'};
+    if(!d)return{state:'error',msg:'Pilih tanggal setoran.'};
+    if(d>todayS())return{state:'error',msg:'Tanggal setoran tidak boleh di masa depan.'};
+    const type=edGetType(e.type,false);
+    let ov=0;
+    if(type==='baru'){
+      const have=new Set();
+      S.matanLog.forEach(x=>{if(x.id===e.id||x.matanId!==m.id||x.type!=='baru')return;for(let b=x.from;b<=x.to;b++)have.add(b);});
+      for(let b=f;b<=t;b++)if(have.has(b))ov++;
+    }
+    return{state:'ok',from:f,to:t,count:t-f+1,date:d,type:type,
+      html:'<div><span class="big">'+(t-f+1)+'</span>bait</div><div class="sub2">Bait '+f+' sampai '+t+'</div>'+(ov?'<div class="note">'+ov+' bait sudah tercatat sebagai hafalan baru oleh setoran lain.</div>':'')};
+  };
+  edOpen({title:'Edit setoran',html:html,validate:validate,onSave:v=>{
+    Object.assign(e,{date:v.date,type:v.type,from:v.from,to:v.to,count:v.count});
+    updateM();renderAll();
+    const newDoc=lDoc(e);
+    markDirty(lDoc(old),newDoc);
+    toastUndo('Setoran diperbarui',()=>{
+      Object.keys(e).forEach(k=>delete e[k]);Object.assign(e,old);
+      updateM();renderAll();markDirty(lDoc(old),newDoc);
+    });
+  }});
 }
 async function delQuran(id){
   const e=S.quran.find(x=>x.id===id);if(!e)return;
@@ -4363,7 +4495,7 @@ function renderMatan(){
   else{
     h+=logs.slice(0,ui.mShown).map(e=>
       '<div class="hrow"><div><div class="h-d">'+esc(fmtDay(e.date))+' '+e.date.slice(0,4)+' <span class="chip '+(e.type==='baru'?'baru':'mur')+'">'+(e.type==='baru'?'Baru':"Muraja'ah")+'</span></div><div class="h-r">Bait '+e.from+' sampai '+e.to+'</div></div>'+
-      '<div class="h-n"><b>'+e.count+'</b>bait</div><button class="icon-btn" type="button" data-del-m="'+esc(e.id)+'" aria-label="Hapus setoran">'+ICON.trash+'</button></div>').join('');
+      '<div class="h-n"><b>'+e.count+'</b>bait</div><div class="h-act"><button class="icon-btn" type="button" data-edit-m="'+esc(e.id)+'" aria-label="Edit setoran">'+ICON.edit+'</button><button class="icon-btn" type="button" data-del-m="'+esc(e.id)+'" aria-label="Hapus setoran">'+ICON.trash+'</button></div></div>').join('');
     if(logs.length>ui.mShown)h+='<button class="btn small more" type="button" id="mMore">Tampilkan lebih banyak</button>';
   }
   $('mHist').innerHTML=h;
@@ -7222,6 +7354,7 @@ function qmBuild(){
     if(u){QM.unit=u.dataset.qmUnit;qmSync();return;}
     if(ev.target.closest('#qmSave'))qmSave();
     if(ev.target.closest('#qmMapBtn')){openQMapDlg();return;}
+    const ed=ev.target.closest('[data-edit-q]');if(ed){editQuran(ed.dataset.editQ);return;}
     const d=ev.target.closest('[data-del-q]');if(d){delQuran(d.dataset.delQ);return;}
   });
   box.addEventListener('input',ev=>{const t=ev.target;if(t.id==='qmA1'||t.id==='qmA3')qmHint(t.id);qmPreview();});
@@ -7270,7 +7403,7 @@ function renderQMode(){
     const f=e.fid?MODE.friends.find(x=>x.id===e.fid):null,catNm=(M_CATS.find(c=>c[0]===e.cat)||[0,e.cat])[1],chipCls=e.cat==='sabaq'?'baru':(e.cat==='sabqi'||e.cat==='manzil')?e.cat:'mur',chip='<span class="chip '+chipCls+'">'+esc(catNm)+(f?' · '+mEsc(f.name):'')+'</span>';
     return '<div class="hrow"><div><div class="h-d">'+esc(fmtDay(e.date))+' '+e.date.slice(0,4)+' '+chip+'</div><div class="h-r">'+esc(qRangeText(e))+'</div><div class="h-r h-r2">'+esc(qSubText(e))+'</div></div>'+
       '<div class="h-n">'+(e.mode==='ayat'?'<b>'+nf.format(e.ayat)+'</b>ayat<div class="h-n2">sekitar '+fmtN(e.pages)+' hal</div>':'<b>'+e.pages+'</b>hal<div class="h-n2">'+nf.format(e.ayat)+' ayat</div>')+'</div>'+
-      '<button class="icon-btn" type="button" data-del-q="'+esc(e.id)+'" aria-label="Hapus setoran">'+ICON.trash+'</button></div>';
+      '<div class="h-act"><button class="icon-btn" type="button" data-edit-q="'+esc(e.id)+'" aria-label="Edit setoran">'+ICON.edit+'</button><button class="icon-btn" type="button" data-del-q="'+esc(e.id)+'" aria-label="Hapus setoran">'+ICON.trash+'</button></div></div>';
   }).join('')||'<p class="sub">Belum ada setoran dengan kategori.</p>';
 }
 
@@ -8382,6 +8515,7 @@ function bind(){
     const again=document.querySelector('#suratDetailEnd .bt[data-a="'+a+'"]');if(again)again.focus();
   });
   $('qHist').addEventListener('click',e=>{
+    const ed=e.target.closest('[data-edit-q]');if(ed){editQuran(ed.dataset.editQ);return;}
     const d=e.target.closest('[data-del-q]');if(d){delQuran(d.dataset.delQ);return;}
     if(e.target.closest('#qMore')){ui.qShown+=15;renderQHist();}
   });
@@ -8412,6 +8546,7 @@ function bind(){
     if(e.target.closest('#mManualShortcut')){mEl.from.focus();$('mForm').scrollIntoView({behavior:'smooth',block:'start'});return;}
   });
   $('mHist').addEventListener('click',e=>{
+    const ed=e.target.closest('[data-edit-m]');if(ed){editMatanEntry(ed.dataset.editM);return;}
     const d=e.target.closest('[data-del-m]');if(d){delMatanEntry(d.dataset.delM);return;}
     if(e.target.closest('#mMore')){ui.mShown+=15;renderMatan();}
   });
