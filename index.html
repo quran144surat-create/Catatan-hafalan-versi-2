@@ -468,6 +468,8 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 .form-foot{margin-top:14px}
 
 /* Juz map */
+.qhint{margin:6px 0 0;font-size:13px;color:var(--mute,var(--ink));opacity:.85;min-height:0}
+.qhint:empty{display:none}
 .jmap{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
 @media (min-width:640px){.jmap{grid-template-columns:repeat(10,1fr)}}
 @media (min-width:960px){.jmap{grid-template-columns:repeat(6,1fr)}}
@@ -1115,6 +1117,7 @@ button.ag-card:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
                   <div class="field"><label for="q-sj">Juz</label><input class="input" id="q-sj" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="1-30"></div>
                   <div class="field"><label for="q-sp">Halaman</label><input class="input" id="q-sp" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="Hal."></div>
                 </div>
+              <div class="sub2 qhint" id="q-hint-s" aria-live="polite"></div>
               </fieldset>
               <fieldset>
                 <legend>Sampai</legend>
@@ -1122,6 +1125,7 @@ button.ag-card:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
                   <div class="field"><label for="q-ej">Juz</label><input class="input" id="q-ej" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="1-30"></div>
                   <div class="field"><label for="q-ep">Halaman</label><input class="input" id="q-ep" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="Hal."></div>
                 </div>
+              <div class="sub2 qhint" id="q-hint-e" aria-live="polite"></div>
               </fieldset>
               </div>
               <div class="form-grid" id="qm-ayat" hidden>
@@ -1131,6 +1135,7 @@ button.ag-card:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
                   <div class="field"><label for="a-ss">Surat</label><select class="input" id="a-ss"></select></div>
                   <div class="field"><label for="a-sa">Ayat</label><input class="input" id="a-sa" inputmode="numeric" autocomplete="off" maxlength="3" placeholder="Ayat"></div>
                 </div>
+              <div class="sub2 qhint" id="a-hint-s" aria-live="polite"></div>
               </fieldset>
               <fieldset>
                 <legend>Sampai</legend>
@@ -1138,6 +1143,7 @@ button.ag-card:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
                   <div class="field"><label for="a-es">Surat</label><select class="input" id="a-es"></select></div>
                   <div class="field"><label for="a-ea">Ayat</label><input class="input" id="a-ea" inputmode="numeric" autocomplete="off" maxlength="3" placeholder="Ayat"></div>
                 </div>
+              <div class="sub2 qhint" id="a-hint-e" aria-live="polite"></div>
               </fieldset>
               </div>
             </div>
@@ -4000,7 +4006,32 @@ function validateAyat(){
   return{state:'ok',mode:'ayat',pages:pageEq(a1,a2),ayat:a2-a1+1,a1:a1,a2:a2,ss:ss,sa:sa,es:es,ea:ea,date:qEl.date.value,overlap:overlapOf(a1,a2)};
 }
 const validateQuran=()=>qMode()==='ayat'?validateAyat():validatePage();
+/* Info jumlah halaman/ayat di bawah isian formulir (Quran & Mode harian) */
+function qHintPage(j,p){
+  if(!(j>=1&&j<=30))return'';
+  let t='Juz '+j+' punya '+juzPages(j)+' halaman';
+  if(p>=1&&p<=juzPages(j)){const g=gp(j,p),a1=PS[g],a2=PE[g];t+='. Hal '+p+' = '+gRangeText(a1,a2)+' ('+nf.format(a2-a1+1)+' ayat)';}
+  return t+'.';
+}
+function qHintAyat(sn,a){
+  if(!(sn>=1&&sn<=114))return'';
+  const n=AY[sn-1],r=[CUM[sn-1]+1,CUM[sn]];
+  let t=SN[sn-1]+' punya '+n+' ayat ('+pageRangeJuz(pageOfAyah(r[0]),pageOfAyah(r[1]))+')';
+  if(a>=1&&a<=n){const g=gAyah(sn,a);t+='. Ayat '+a+' ada di '+pageRangeJuz(pageOfAyah(g),pageOfAyah(g));}
+  return t+'.';
+}
+function updateQHints(){
+  const n=v=>{const x=toInt(v);return x!==null&&!Number.isNaN(x)?x:0;};
+  const set=(id,t)=>{const e=$(id);if(e)e.textContent=t;};
+  const sj=n(qEl.sj.value),ej=n(qEl.ej.value);
+  set('q-hint-s',qHintPage(sj,n(qEl.sp.value)));set('q-hint-e',qHintPage(ej,n(qEl.ep.value)));
+  qEl.sp.placeholder=sj>=1&&sj<=30?'1-'+juzPages(sj):'Hal.';qEl.ep.placeholder=ej>=1&&ej<=30?'1-'+juzPages(ej):'Hal.';
+  const ss=n(aEl.ss.value),es=n(aEl.es.value);
+  set('a-hint-s',qHintAyat(ss,n(aEl.sa.value)));set('a-hint-e',qHintAyat(es,n(aEl.ea.value)));
+  aEl.sa.placeholder=ss>=1&&ss<=114?'1-'+AY[ss-1]:'Ayat';aEl.ea.placeholder=es>=1&&es<=114?'1-'+AY[es-1]:'Ayat';
+}
 function updateQ(){
+  updateQHints();
   const v=validateQuran();
   qEl.res.className='res'+(v.state==='ok'?' ok':v.state==='error'?' err':'');
   if(v.state==='ok'){
@@ -6965,6 +6996,19 @@ M_CAT_KEYS.forEach(k=>{
   else['week','month','year'].forEach(p=>{if(!cur[p]||typeof cur[p]!=='object')cur[p]={};});
 });
 if(!MODE.mtpTarget||typeof MODE.mtpTarget!=='object')MODE.mtpTarget={};
+// Target juz/surat tertentu per kategori: MODE.rangeT[k]={type:'juz'|'surat',ids:[...],due:'YYYY-MM-DD'|''}
+if(!MODE.rangeT||typeof MODE.rangeT!=='object')MODE.rangeT={};
+Object.keys(MODE.rangeT).forEach(k=>{
+  const r=MODE.rangeT[k];
+  if(M_CAT_KEYS.indexOf(k)<0||!r||(r.type!=='juz'&&r.type!=='surat')){delete MODE.rangeT[k];return;}
+  if(!Array.isArray(r.ids))r.ids=[];
+  const mx=r.type==='juz'?30:114;
+  r.ids=Array.from(new Set(r.ids.map(Number).filter(n=>n>=1&&n<=mx))).sort((x,y)=>x-y);
+  const okR=Number.isFinite(r.g1)&&Number.isFinite(r.g2)&&r.g1>=1&&r.g2<=6236&&r.g1<=r.g2;
+  if(!okR){delete r.g1;delete r.g2;}
+  if(!okR&&!r.ids.length){delete MODE.rangeT[k];return;}
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(r.due||''))r.due='';
+});
 // Migrasi: cadangan lama mungkin belum punya kategori "tilawah" atau flag "on"
 // per kategori — lengkapi supaya tetap kompatibel tanpa kehilangan setelan lama.
 M_CAT_KEYS.forEach(k=>{
@@ -7048,6 +7092,183 @@ function setCatTarget(cat,rawVal,dueVal){
   }
   mSave();renderMode();toast(MODE.catTarget[cat][period][key]?'Target '+M_NAMES[cat]+' disimpan':'Target '+M_NAMES[cat]+' dihapus');
 }
+/* ===== Target juz/surat tertentu (per kategori) =====
+   Target t={type:'juz'|'surat', ids:[...] (pilih petak) ATAU g1,g2 (rentang ayat global, dari-ke), due} */
+const RT_DRAFT={},RT_OPEN={};
+const juzOfAyahG=g=>fromGp(pageOfAyah(g)).j;
+function juzAyahRange(j){return[PS[gp(j,1)],PE[gp(j,juzPages(j))]];}
+function suratAyahRange(s){return[CUM[s-1]+1,CUM[s]];}
+const rtIsRange=t=>t&&Number.isFinite(t.g1)&&Number.isFinite(t.g2)&&t.g1>=1&&t.g2<=AYTOT&&t.g1<=t.g2;
+function rtRanges(t){
+  if(rtIsRange(t))return[[t.g1,t.g2]];
+  return t.ids.map(id=>t.type==='juz'?juzAyahRange(id):suratAyahRange(id));
+}
+function rtTotal(t){return rtRanges(t).reduce((a,r)=>a+(r[1]-r[0]+1),0);}
+/* ayat dalam target yang sudah disetor pada kategori itu (gabungan, tidak dihitung ganda) */
+function rtCovered(k,t,due){
+  const rg=rtRanges(t),flag=new Uint8Array(AYTOT+2);
+  for(const e of S.quran){
+    if(e.cat!==k||(due&&e.date>due))continue;
+    for(const r of rg){const lo=Math.max(e.a1,r[0]),hi=Math.min(e.a2,r[1]);for(let g=lo;g<=hi;g++)flag[g]=1;}
+  }
+  let n=0;for(const r of rg)for(let g=r[0];g<=r[1];g++)n+=flag[g];
+  return n;
+}
+function fmtIdList(a){
+  const out=[];let i=0;
+  while(i<a.length){let j=i;while(j+1<a.length&&a[j+1]===a[j]+1)j++;out.push(j>i?a[i]+'–'+a[j]:''+a[i]);i=j+1;}
+  return out.join(', ');
+}
+function suratJuzList(s){
+  const r=suratAyahRange(s),j1=juzOfAyahG(r[0]),j2=juzOfAyahG(r[1]),a=[];
+  for(let j=j1;j<=j2;j++)a.push(j);
+  return a;
+}
+function juzSuratList(j){
+  const r=juzAyahRange(j),a=ayahFromG(r[0]).s,b=ayahFromG(r[1]).s,out=[];
+  for(let s=a;s<=b;s++){const sr=suratAyahRange(s);out.push({s:s,full:sr[0]>=r[0]&&sr[1]<=r[1]});}
+  return out;
+}
+function rtMapText(t){
+  if(rtIsRange(t)){
+    const j1=juzOfAyahG(t.g1),j2=juzOfAyahG(t.g2),x=ayahFromG(t.g1),y=ayahFromG(t.g2);
+    const jt=j1===j2?'Juz '+j1:'Juz '+j1+'–'+j2;
+    return t.type==='surat'?gRangeText(t.g1,t.g2)+' → '+jt:jt+' → '+(x.s===y.s?SN[x.s-1]:SN[x.s-1]+' – '+SN[y.s-1]+' ('+(y.s-x.s+1)+' surat)')+' · '+rtPageText(t);
+  }
+  const ids=t.ids;if(!ids.length)return'';
+  if(t.type==='surat')return ids.slice(0,6).map(s=>SN[s-1]+' → Juz '+fmtIdList(suratJuzList(s))).join('; ')+(ids.length>6?'; dan '+(ids.length-6)+' surat lain':'');
+  return ids.slice(0,4).map(j=>{
+    const l=juzSuratList(j),f=l[0],g=l[l.length-1],nm=x=>SN[x.s-1]+(x.full?'':' (sebagian)');
+    return'Juz '+j+': '+(l.length===1?nm(f):nm(f)+' – '+nm(g)+' ('+l.length+' surat)');
+  }).join('; ')+(ids.length>4?'; dan '+(ids.length-4)+' juz lain':'');
+}
+function rtPageText(t){return pageRangeJuz(pageOfAyah(t.g1),pageOfAyah(t.g2));}
+function rtLabel(t){
+  if(rtIsRange(t))return t.type==='juz'?pageRangeJuz(pageOfAyah(t.g1),pageOfAyah(t.g2)):gRangeText(t.g1,t.g2);
+  if(t.type==='juz')return'Juz '+fmtIdList(t.ids);
+  return t.ids.length<=3?t.ids.map(s=>SN[s-1]).join(', '):t.ids.length+' surat ('+SN[t.ids[0]-1]+' dst.)';
+}
+/* Draft: mode 'petak' (ids) atau 'rentang' (f1,f2 = dari, t1,t2 = ke).
+   juz: f1=juz,f2=halaman ; surat: f1=surat,f2=ayat */
+function rtDraftFromSaved(r){
+  const d={type:r.type,mode:'petak',ids:[],due:r.due||'',f1:1,f2:1,t1:1,t2:1};
+  if(rtIsRange(r)){
+    d.mode='rentang';
+    if(r.type==='juz'){const a=fromGp(pageOfAyah(r.g1)),b=fromGp(pageOfAyah(r.g2));d.f1=a.j;d.f2=a.p;d.t1=b.j;d.t2=b.p;}
+    else{const a=ayahFromG(r.g1),b=ayahFromG(r.g2);d.f1=a.s;d.f2=a.a;d.t1=b.s;d.t2=b.a;}
+  }else d.ids=r.ids.slice();
+  return d;
+}
+function rtDraftGet(k){
+  if(!RT_DRAFT[k])RT_DRAFT[k]=MODE.rangeT[k]?rtDraftFromSaved(MODE.rangeT[k]):{type:'juz',mode:'petak',ids:[],due:'',f1:1,f2:1,t1:1,t2:1};
+  return RT_DRAFT[k];
+}
+function rtClampDraft(d){
+  if(d.type==='juz'){
+    d.f1=Math.min(30,Math.max(1,d.f1|0||1));d.t1=Math.min(30,Math.max(1,d.t1|0||1));
+    d.f2=Math.min(juzPages(d.f1),Math.max(1,d.f2|0||1));d.t2=Math.min(juzPages(d.t1),Math.max(1,d.t2|0||1));
+  }else{
+    d.f1=Math.min(114,Math.max(1,d.f1|0||1));d.t1=Math.min(114,Math.max(1,d.t1|0||1));
+    d.f2=Math.min(AY[d.f1-1],Math.max(1,d.f2|0||1));d.t2=Math.min(AY[d.t1-1],Math.max(1,d.t2|0||1));
+  }
+}
+function rtDraftTarget(d){
+  if(d.mode==='rentang'){
+    rtClampDraft(d);
+    const g1=d.type==='juz'?PS[gp(d.f1,d.f2)]:gAyah(d.f1,d.f2),g2=d.type==='juz'?PE[gp(d.t1,d.t2)]:gAyah(d.t1,d.t2);
+    return{type:d.type,ids:[],g1:g1,g2:g2,due:d.due};
+  }
+  return{type:d.type,ids:d.ids,due:d.due};
+}
+function rtCapture(k){
+  const d=rtDraftGet(k),du=$('rtDue-'+k);if(du)d.due=du.value;
+  ['f1','f2','t1','t2'].forEach(f=>{const el=$('rt-'+f+'-'+k);if(el)d[f]=parseInt(el.value,10)||1;});
+}
+function rtToggle(k,id){
+  rtCapture(k);
+  const d=rtDraftGet(k),i=d.ids.indexOf(id);
+  if(i>=0)d.ids.splice(i,1);else{d.ids.push(id);d.ids.sort((x,y)=>x-y);}
+  renderMode();
+}
+function rtSetType(k,type){
+  if(type!=='juz'&&type!=='surat')return;
+  rtCapture(k);
+  const d=rtDraftGet(k);if(d.type!==type){d.type=type;d.ids=[];d.f1=d.f2=d.t1=d.t2=1;}
+  renderMode();
+}
+function rtSetMode(k,mode){
+  if(mode!=='petak'&&mode!=='rentang')return;
+  rtCapture(k);rtDraftGet(k).mode=mode;renderMode();
+}
+function rtField(k){rtCapture(k);rtClampDraft(rtDraftGet(k));renderMode();}
+function rtSave(k){
+  rtCapture(k);
+  const d=rtDraftGet(k),t=rtDraftTarget(d);
+  if(d.mode==='rentang'){if(!rtIsRange(t)){toast('Rentang tidak valid: titik awal harus sebelum titik akhir');return;}}
+  else if(!d.ids.length){toast('Pilih minimal satu juz atau surat dulu');return;}
+  const out={type:t.type,ids:t.ids.slice(),due:/^\d{4}-\d{2}-\d{2}$/.test(d.due||'')?d.due:''};
+  if(d.mode==='rentang'){out.g1=t.g1;out.g2=t.g2;}
+  MODE.rangeT[k]=out;
+  RT_OPEN[k]=false;delete RT_DRAFT[k];mSave();renderMode();toast('Target '+rtLabel(out)+' untuk '+M_NAMES[k]+' disimpan');
+}
+function rtClear(k){
+  delete MODE.rangeT[k];delete RT_DRAFT[k];RT_OPEN[k]=false;
+  mSave();renderMode();toast('Target juz/surat '+M_NAMES[k]+' dihapus');
+}
+function rtStats(k){
+  const r=MODE.rangeT[k];if(!r)return null;
+  return{r:r,tot:rtTotal(r),got:rtCovered(k,r,r.due),label:rtLabel(r)};
+}
+function rtBadge(st){
+  return st.r.due?catTargetDueBadgeHTML(st.tot,st.got,st.r.due,'ayat'):catTargetBadgeHTML(st.tot,st.got,'ayat');
+}
+function rtRangeFieldsHTML(k,d){
+  rtClampDraft(d);
+  const juz=d.type==='juz';
+  const sel=(f,val)=>{
+    let o='';
+    if(juz)for(let j=1;j<=30;j++)o+='<option value="'+j+'"'+(j===val?' selected':'')+'>Juz '+j+'</option>';
+    else for(let s=1;s<=114;s++)o+='<option value="'+s+'"'+(s===val?' selected':'')+'>'+s+'. '+mEsc(SN[s-1])+'</option>';
+    return'<select class="input" id="rt-'+f+'-'+k+'" data-rt-f="'+k+'" style="width:auto;max-width:100%" aria-label="'+(f==='f1'?'Dari ':'Sampai ')+(juz?'juz':'surat')+'">'+o+'</select>';
+  };
+  const num=(f,val,max)=>'<input class="input" type="number" min="1" max="'+max+'" inputmode="numeric" id="rt-'+f+'-'+k+'" data-rt-f="'+k+'" value="'+val+'" style="width:84px" aria-label="'+(f==='f2'?'Dari ':'Sampai ')+(juz?'halaman':'ayat')+'">';
+  const lab=juz?'halaman':'ayat',mx1=juz?juzPages(d.f1):AY[d.f1-1],mx2=juz?juzPages(d.t1):AY[d.t1-1];
+  return'<div class="mh-fld"><span>Dari</span><span class="mh-ctl">'+sel('f1',d.f1)+num('f2',d.f2,mx1)+'<small>'+lab+' (maks '+mx1+')</small></span></div>'+
+    '<div class="mh-fld"><span>Sampai</span><span class="mh-ctl">'+sel('t1',d.t1)+num('t2',d.t2,mx2)+'<small>'+lab+' (maks '+mx2+')</small></span></div>';
+}
+function rtPickerHTML(k){
+  const saved=MODE.rangeT[k],st=rtStats(k);
+  let h='<div class="mh-row" style="margin-top:8px"><span class="mh-lbl">Target juz/surat</span>'+(st?rtBadge(st):'<span class="badge info">Belum diatur</span>')+'</div>';
+  if(st){
+    const pct=Math.min(100,Math.round(st.got/st.tot*100));
+    h+='<div class="mh-bar" aria-hidden="true"><i style="width:'+pct+'%"></i></div>'+
+      '<p class="mh-note" style="margin:0 0 8px"><b>'+mEsc(st.label)+'</b>: '+fmtN(st.got)+' dari '+fmtN(st.tot)+' ayat ('+pct+'%)'+(st.r.due?', dihitung sampai jatuh tempo '+fmtLong(st.r.due):'')+'.<br>'+mEsc(rtMapText(st.r))+'</p>';
+  }
+  if(!RT_OPEN[k]){
+    return h+'<div class="mh-ctl"><button type="button" class="btn small" data-rt-open="'+k+'">'+(saved?'Ubah target juz/surat':'Pilih juz/surat')+'</button>'+(saved?'<button type="button" class="btn small ghost" data-rt-clear="'+k+'">Hapus</button>':'')+'</div>';
+  }
+  const d=rtDraftGet(k);
+  h+='<div class="mh-ctl" style="margin-bottom:8px"><select class="input" data-rt-type="'+k+'" style="width:auto" aria-label="Jenis target '+M_NAMES[k]+'"><option value="juz"'+(d.type==='juz'?' selected':'')+'>Per juz</option><option value="surat"'+(d.type==='surat'?' selected':'')+'>Per surat</option></select>'+
+    '<select class="input" data-rt-mode="'+k+'" style="width:auto" aria-label="Cara memilih"><option value="petak"'+(d.mode==='petak'?' selected':'')+'>Ketuk petak</option><option value="rentang"'+(d.mode==='rentang'?' selected':'')+'>Rentang dari–ke</option></select></div>';
+  if(d.mode==='rentang'){
+    const t=rtDraftTarget(d);
+    h+=rtRangeFieldsHTML(k,d)+'<p class="mh-note" style="margin:8px 0">'+(rtIsRange(t)?'<b>'+mEsc(rtLabel(t))+'</b> · '+fmtN(rtTotal(t))+' ayat<br>'+mEsc(rtMapText(t)):'Titik awal harus sebelum titik akhir.')+'</p>';
+  }else{
+    let tiles='';
+    if(d.type==='juz'){
+      for(let j=1;j<=30;j++)tiles+='<button type="button" class="jt'+(d.ids.indexOf(j)>=0?' sel done':'')+'" data-rt-k="'+k+'" data-rt-id="'+j+'" aria-pressed="'+(d.ids.indexOf(j)>=0)+'" aria-label="Juz '+j+'"><span class="n">'+j+'</span></button>';
+      h+='<div class="jmap">'+tiles+'</div>';
+    }else{
+      for(let s=1;s<=114;s++)tiles+='<button type="button" class="jt st'+(d.ids.indexOf(s)>=0?' sel done':'')+'" data-rt-k="'+k+'" data-rt-id="'+s+'" aria-pressed="'+(d.ids.indexOf(s)>=0)+'" aria-label="'+mEsc(SN[s-1])+'" title="'+mEsc(SN[s-1])+'"><span class="n">'+s+'</span></button>';
+      h+='<div class="smap">'+tiles+'</div>';
+    }
+    const t=rtDraftTarget(d);
+    h+='<p class="mh-note" style="margin:8px 0">'+(d.ids.length?'<b>Dipilih: '+mEsc(rtLabel(t))+'</b> · '+fmtN(rtTotal(t))+' ayat<br>'+mEsc(rtMapText(t)):'Ketuk juz atau surat untuk memilih (boleh lebih dari satu). Sistem menunjukkan juz/surat yang saling terkait.')+'</p>';
+  }
+  h+='<div class="mh-ctl"><label class="tgt-due"><span>Jatuh tempo</span><input type="date" class="input" id="rtDue-'+k+'" value="'+(d.due||'')+'" aria-label="Tanggal jatuh tempo target juz/surat '+M_NAMES[k]+'"></label>'+
+    '<button type="button" class="btn small" data-rt-save="'+k+'">Simpan</button><button type="button" class="btn small ghost" data-rt-cancel="'+k+'">Batal</button></div>';
+  return h;
+}
 function mtpMonthSessions(key){key=key||monthKey();return MODE.sessions.filter(x=>x.date.indexOf(key+'-')===0).length;}
 function setMtpTarget(rawVal){
   const key=monthKey(),v=parseInt(rawVal,10);
@@ -7101,6 +7322,7 @@ function renderMode(){
               '<label class="tgt-due"><span>Jatuh tempo</span><input type="date" class="input" id="ctDue-'+k+'" min="'+pMin+'" max="'+pMax+'" value="'+due+'" aria-label="Tanggal jatuh tempo target '+M_NAMES[k]+'"></label>'+
               '<button type="button" class="btn small" data-ct-save="'+k+'">Simpan</button>'+(tgt?'<button type="button" class="btn small ghost" data-ct-clear="'+k+'">Hapus</button>':'')+'</div>';
           }
+          inner+=rtPickerHTML(k);
         }
         return '<section class="mh-card'+(on?'':' off')+'"><label class="mh-head"><input type="checkbox" data-m-oncat="'+k+'"'+(on?' checked':'')+'><span><b>'+M_NAMES[k]+'</b><small>'+cap(M_HINT[k])+'</small></span></label>'+inner+'</section>';
       }).join('');
@@ -7130,6 +7352,10 @@ function renderMode(){
     const due=catDueGet(k,period),got=due?catPeriodAmountDue(k,period,due):catPeriodAmount(k,period);
     return trow(M_NAMES[k]+' ('+({week:'mingguan',month:'bulanan',year:'tahunan'}[period])+')'+(due?' \u00b7 jatuh tempo '+fmtLong(due):''),tgt,got,MODE.t[k].u,due);
   }).join('');
+  const rtRows=M_CAT_KEYS.filter(k=>MODE.t[k].on!==false&&MODE.rangeT[k]).map(k=>{
+    const st=rtStats(k);
+    return trow(M_NAMES[k]+' \u00b7 '+mEsc(st.label)+(st.r.due?' \u00b7 jatuh tempo '+fmtLong(st.r.due):''),st.tot,st.got,'ayat',st.r.due);
+  }).join('');
   const mtpTgtRow=MODE.mtpTarget[key]?trow('Sesi MTP',MODE.mtpTarget[key],mtpMonthSessions(key),'sesi'):'';
   const mtp=MODE.friends.filter(f=>f.days.indexOf(wd)>=0).map(f=>{
     const s=MODE.sessions.find(x=>x.fid===f.id&&x.date===today);
@@ -7139,7 +7365,7 @@ function renderMode(){
   const rc=MODE.friends.map(f=>{const r=mRecap(f);return '<div class="mh-item"><span><b>'+mEsc(f.name)+'</b><small>'+r.n+' sesi bulan ini · '+r.tot+' '+f.u+(r.last?' · terakhir '+r.last:'')+(r.st?' · '+r.st+' minggu beruntun':'')+'</small></span></div>';}).join('');
   const notes=MODE.sessions.filter(x=>x.note).slice(-5).reverse().map(x=>{const f=MODE.friends.find(y=>y.id===x.fid);return '<p class="sub" style="margin:4px 0">'+x.date+' · '+mEsc(f?f.name:'(teman dihapus)')+': '+mEsc(x.note)+'</p>';}).join('');
   const sec=(t,c)=>c?'<h4 class="mh-sub">'+t+'</h4>'+c:'';
-  dash.innerHTML='<div class="ph"><h3>Mode harian</h3></div>'+sec('Setoran hari ini',rows)+sec('Target',catTgtRows+mtpTgtRow)+sec('MTP hari ini',mtp)+sec('Rekap per teman',rc)+sec('Catatan sesi terbaru',notes);
+  dash.innerHTML='<div class="ph"><h3>Mode harian</h3></div>'+sec('Setoran hari ini',rows)+sec('Target',catTgtRows+rtRows+mtpTgtRow)+sec('MTP hari ini',mtp)+sec('Rekap per teman',rc)+sec('Catatan sesi terbaru',notes);
 }
 document.addEventListener('click',ev=>{
   const b=ev.target.closest('[data-m-go],[data-m-open],[data-m-save],[data-m-delf],#mfAdd');if(!b)return;
@@ -7165,6 +7391,9 @@ document.addEventListener('change',ev=>{
   else if(t.matches('[data-m-unit]')&&t.dataset.mUnit!=='mf'){MODE.t[t.dataset.mUnit].u=t.value;mSave();renderMode();}
   else if(t.matches('[data-m-oncat]')){const k=t.dataset.mOncat;MODE.t[k].on=t.checked;mSave();renderMode();toast((t.checked?M_NAMES[k]+' diaktifkan':M_NAMES[k]+' dinonaktifkan'));}
   else if(t.matches('[data-ct-period]')){setCatPeriod(t.dataset.ctPeriod,t.value);}
+  else if(t.matches('[data-rt-type]')){rtSetType(t.dataset.rtType,t.value);}
+  else if(t.matches('[data-rt-mode]')){rtSetMode(t.dataset.rtMode,t.value);}
+  else if(t.matches('[data-rt-f]')){rtField(t.dataset.rtF);}
   else if(t.matches('[data-m-done]')){const d=todayS();(MODE.done[d]=MODE.done[d]||{})[t.dataset.mDone]=t.checked?1:0;mSave();renderMode();}
 });
 
@@ -7333,6 +7562,7 @@ function qmPreview(){
   }
   updateQ();
   res.className=qEl.res.className;res.innerHTML=qEl.res.innerHTML;
+  const inf=$('qmInfo');if(inf){const ids=QM.unit==='ayat'?['a-hint-s','a-hint-e']:['q-hint-s','q-hint-e'],a=$(ids[0]).textContent,b=$(ids[1]).textContent;inf.textContent=[a?'Awal: '+a:'',b&&b!==a?'Akhir: '+b:''].filter(Boolean).join(' ');}
 }
 function qmBuild(){
   const box=$('v-qmode'),inp=(id,l,ph)=>'<div class="field"><label for="'+id+'">'+l+'</label><input class="input" type="number" min="1" inputmode="numeric" id="'+id+'" placeholder="'+ph+'"></div>',srt=(id,l)=>'<div class="field"><label for="'+id+'">'+l+'</label><input class="input" id="'+id+'" list="qmSuratList" autocomplete="off" placeholder="Ketik nama atau nomor"><div class="mh-note" id="'+id+'Hint" aria-live="polite"></div></div>',grid='display:grid;grid-template-columns:1fr 1fr;gap:8px';
@@ -7345,6 +7575,7 @@ function qmBuild(){
   '<div class="field"><label for="qmDate">Tanggal</label><input class="input" type="date" id="qmDate" value="'+todayS()+'"></div>'+
   '<div id="qmPage" style="'+grid+'">'+inp('qmP1','Juz awal','1-30')+inp('qmP2','Halaman awal','1-20')+inp('qmP3','Juz akhir','1-30')+inp('qmP4','Halaman akhir','1-20')+'</div>'+
   '<div id="qmAyat" style="'+grid+'">'+srt('qmA1','Surat awal')+inp('qmA2','Ayat awal','')+srt('qmA3','Surat akhir')+inp('qmA4','Ayat akhir','')+'</div><datalist id="qmSuratList">'+SN.map((n,i)=>'<option value="'+(i+1)+'. '+n+'">').join('')+'</datalist>'+
+  '<div class="sub2 qhint" id="qmInfo" aria-live="polite"></div>'+
   '<div class="res" id="qmRes" role="status" aria-live="polite"></div>'+
   '<button type="button" class="btn primary block" id="qmSave" style="margin-top:12px">Simpan setoran</button></div>'+
   '<div class="panel" style="margin-top:16px"><div class="ph"><h3>Riwayat mode harian</h3></div><div id="qmHist"></div></div>';
@@ -8629,6 +8860,14 @@ function bind(){
     const sv=e.target.closest('[data-ct-save]'),cl=e.target.closest('[data-ct-clear]');
     if(sv){const k=sv.dataset.ctSave;setCatTarget(k,$('ctIn-'+k).value,$('ctDue-'+k).value);}
     else if(cl){const k=cl.dataset.ctClear;setCatTarget(k,0);}
+    else{
+      const tile=e.target.closest('[data-rt-id]'),op=e.target.closest('[data-rt-open]'),rs=e.target.closest('[data-rt-save]'),rc=e.target.closest('[data-rt-clear]'),rx=e.target.closest('[data-rt-cancel]');
+      if(tile)rtToggle(tile.dataset.rtK,Number(tile.dataset.rtId));
+      else if(op){const k=op.dataset.rtOpen;delete RT_DRAFT[k];RT_OPEN[k]=true;renderMode();}
+      else if(rs)rtSave(rs.dataset.rtSave);
+      else if(rc)rtClear(rc.dataset.rtClear);
+      else if(rx){const k=rx.dataset.rtCancel;delete RT_DRAFT[k];RT_OPEN[k]=false;renderMode();}
+    }
   });
   $('modePanel').addEventListener('keydown',e=>{
     const id=e.target.id||'';
