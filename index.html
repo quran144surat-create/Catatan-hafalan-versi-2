@@ -694,6 +694,14 @@ select.input{appearance:auto;padding-right:6px;text-overflow:ellipsis}
 .mapbar h3{font-size:24px;line-height:1.15}
 .mapbar .seg{min-width:170px}
 .sursel{margin-bottom:12px}
+.field.has-sl{position:relative}
+.sl-pop{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:60;max-height:min(280px,42vh);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:var(--field);border:1px solid var(--line2);border-radius:12px;box-shadow:var(--shadow);padding:4px}
+.sl-pop[hidden]{display:none}
+.sl-it{display:block;width:100%;text-align:left;padding:10px 12px;border:0;border-radius:8px;background:transparent;color:var(--ink);font:500 15px var(--sans);cursor:pointer}
+.sl-it small{color:var(--muted);font-weight:400}
+.sl-it.act{background:var(--surface2)}
+.sl-it.cur{font-weight:700;color:var(--accent-text)}
+.sl-empty{padding:10px 12px;color:var(--muted);font-size:14px}
 .smap{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
 @media (min-width:640px){.smap{grid-template-columns:repeat(10,1fr)}}
 @media (min-width:960px){.smap{grid-template-columns:repeat(6,1fr)}}
@@ -7564,8 +7572,75 @@ function qmPreview(){
   res.className=qEl.res.className;res.innerHTML=qEl.res.innerHTML;
   const inf=$('qmInfo');if(inf){const ids=QM.unit==='ayat'?['a-hint-s','a-hint-e']:['q-hint-s','q-hint-e'],a=$(ids[0]).textContent,b=$(ids[1]).textContent;inf.textContent=[a?'Awal: '+a:'',b&&b!==a?'Akhir: '+b:''].filter(Boolean).join(' ');}
 }
+// Daftar surat kustom untuk input "Surat awal/akhir" Mode Harian.
+// Pengganti <datalist>: datalist bawaan browser selalu membuka daftar dari
+// paling atas dan tidak bisa diarahkan ke item terpilih. Daftar ini, saat
+// dibuka kembali, langsung menggulir ke surat yang sedang terpilih.
+function slInit(){
+  ['qmA1','qmA3'].forEach(function(id){
+    var inp=$(id),pop=$(id+'Pop');if(!inp||!pop)return;
+    var act=-1;
+    var lbl=function(n){return n+'. '+SN[n-1];};
+    var curNo=function(){var v=inp.value.trim();if(!v)return 0;var n=suratNo(v);return n&&v===lbl(n)?n:0;};
+    var btns=function(){return pop.querySelectorAll('.sl-it');};
+    function setAct(i,scroll){
+      var b=btns();if(!b.length)return;
+      if(act>=0&&b[act])b[act].classList.remove('act');
+      act=Math.max(0,Math.min(b.length-1,i));
+      b[act].classList.add('act');
+      if(scroll)b[act].scrollIntoView({block:'nearest'});
+    }
+    function build(filter){
+      var cn=curNo(),q=(filter||'').trim().toLowerCase(),h='';
+      for(var n=1;n<=114;n++){
+        if(q&&lbl(n).toLowerCase().indexOf(q)<0)continue;
+        h+='<button type="button" class="sl-it'+(n===cn?' cur':'')+'" role="option" tabindex="-1" data-n="'+n+'" aria-selected="'+(n===cn)+'">'+n+'. '+esc(SN[n-1])+' <small>('+AY[n-1]+' ayat)</small></button>';
+      }
+      pop.innerHTML=h||'<div class="sl-empty">Surat tidak ditemukan</div>';
+      act=-1;
+    }
+    function open(filter){
+      build(filter);
+      pop.hidden=false;inp.setAttribute('aria-expanded','true');
+      var cur=pop.querySelector('.cur');
+      if(cur){
+        // Buka langsung di posisi surat terpilih (bukan dari paling atas).
+        pop.scrollTop=Math.max(0,cur.offsetTop-(pop.clientHeight-cur.offsetHeight)/2);
+        setAct(Array.prototype.indexOf.call(btns(),cur),false);
+      }else pop.scrollTop=0;
+    }
+    function close(){pop.hidden=true;inp.setAttribute('aria-expanded','false');act=-1;}
+    function pick(n){
+      inp.value=lbl(n);close();
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    inp.addEventListener('focus',function(){open(curNo()?'':inp.value);});
+    inp.addEventListener('click',function(){if(pop.hidden)open(curNo()?'':inp.value);});
+    inp.addEventListener('input',function(){open(inp.value);});
+    inp.addEventListener('keydown',function(e){
+      if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+        e.preventDefault();
+        if(pop.hidden){open(curNo()?'':inp.value);return;}
+        setAct(act<0?0:act+(e.key==='ArrowDown'?1:-1),true);
+      }else if(e.key==='Enter'){
+        if(!pop.hidden&&act>=0){e.preventDefault();var b=btns()[act];if(b)pick(+b.dataset.n);}
+      }else if(e.key==='Escape'){
+        if(!pop.hidden){e.preventDefault();e.stopPropagation();close();}
+      }else if(e.key==='Tab'){close();}
+    });
+    // Cegah input kehilangan fokus saat item daftar ditekan.
+    pop.addEventListener('mousedown',function(e){e.preventDefault();});
+    pop.addEventListener('click',function(e){var b=e.target.closest('.sl-it');if(b)pick(+b.dataset.n);});
+    document.addEventListener('pointerdown',function(e){
+      if(pop.hidden)return;
+      if(e.target===inp||pop.contains(e.target))return;
+      close();
+    });
+  });
+}
 function qmBuild(){
-  const box=$('v-qmode'),inp=(id,l,ph)=>'<div class="field"><label for="'+id+'">'+l+'</label><input class="input" type="number" min="1" inputmode="numeric" id="'+id+'" placeholder="'+ph+'"></div>',srt=(id,l)=>'<div class="field"><label for="'+id+'">'+l+'</label><input class="input" id="'+id+'" list="qmSuratList" autocomplete="off" placeholder="Ketik nama atau nomor"><div class="mh-note" id="'+id+'Hint" aria-live="polite"></div></div>',grid='display:grid;grid-template-columns:1fr 1fr;gap:8px';
+  const box=$('v-qmode'),inp=(id,l,ph)=>'<div class="field"><label for="'+id+'">'+l+'</label><input class="input" type="number" min="1" inputmode="numeric" id="'+id+'" placeholder="'+ph+'"></div>',srt=(id,l)=>'<div class="field has-sl"><label for="'+id+'">'+l+'</label><input class="input" id="'+id+'" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="'+id+'Pop" autocomplete="off" placeholder="Ketik nama atau nomor"><div class="sl-pop" id="'+id+'Pop" role="listbox" hidden></div><div class="mh-note" id="'+id+'Hint" aria-live="polite"></div></div>',grid='display:grid;grid-template-columns:1fr 1fr;gap:8px';
   box.innerHTML='<header class="vh"><div><h2>Hafalan Quran</h2><p class="sub">Mode harian aktif. Catat setoran per kategori.</p></div></header>'+
   '<div class="panel"><div class="ph"><h3>Progres hari ini</h3></div><div id="qmBars"></div></div>'+
   '<div class="panel" id="qmFormPanel" style="margin-top:16px"><div class="ph" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h3>Catat setoran</h3><button type="button" class="qm-map-btn" id="qmMapBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 4 6v14l5-2 6 2 5-2V4l-5 2-6-2Z"/><path d="M9 4v14M15 6v14"/></svg>Peta hafalan</button></div>'+
@@ -7574,7 +7649,7 @@ function qmBuild(){
   '<div style="display:flex;gap:6px;margin-bottom:10px"><button type="button" class="btn small" data-qm-unit="halaman">Halaman</button><button type="button" class="btn small" data-qm-unit="ayat">Ayat</button></div>'+
   '<div class="field"><label for="qmDate">Tanggal</label><input class="input" type="date" id="qmDate" value="'+todayS()+'"></div>'+
   '<div id="qmPage" style="'+grid+'">'+inp('qmP1','Juz awal','1-30')+inp('qmP2','Halaman awal','1-20')+inp('qmP3','Juz akhir','1-30')+inp('qmP4','Halaman akhir','1-20')+'</div>'+
-  '<div id="qmAyat" style="'+grid+'">'+srt('qmA1','Surat awal')+inp('qmA2','Ayat awal','')+srt('qmA3','Surat akhir')+inp('qmA4','Ayat akhir','')+'</div><datalist id="qmSuratList">'+SN.map((n,i)=>'<option value="'+(i+1)+'. '+n+'">').join('')+'</datalist>'+
+  '<div id="qmAyat" style="'+grid+'">'+srt('qmA1','Surat awal')+inp('qmA2','Ayat awal','')+srt('qmA3','Surat akhir')+inp('qmA4','Ayat akhir','')+'</div>'+
   '<div class="sub2 qhint" id="qmInfo" aria-live="polite"></div>'+
   '<div class="res" id="qmRes" role="status" aria-live="polite"></div>'+
   '<button type="button" class="btn primary block" id="qmSave" style="margin-top:12px">Simpan setoran</button></div>'+
@@ -7590,6 +7665,7 @@ function qmBuild(){
   });
   box.addEventListener('input',ev=>{const t=ev.target;if(t.id==='qmA1'||t.id==='qmA3')qmHint(t.id);qmPreview();});
   box.addEventListener('change',ev=>{if(ev.target.id==='qmA1'&&!$('qmA3').value&&suratNo(ev.target.value)){$('qmA3').value=ev.target.value;qmHint('qmA3');}qmPreview();});
+  slInit();
   qmBuilt=true;qmSync();
 }
 async function qmSave(){
