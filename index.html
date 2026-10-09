@@ -7573,7 +7573,16 @@ function qmPreview(){
   }
   updateQ();
   res.className=qEl.res.className;res.innerHTML=qEl.res.innerHTML;
-  const inf=$('qmInfo');if(inf){const ids=QM.unit==='ayat'?['a-hint-s','a-hint-e']:['q-hint-s','q-hint-e'],a=$(ids[0]).textContent,b=$(ids[1]).textContent;inf.textContent=[a?'Awal: '+a:'',b&&b!==a?'Akhir: '+b:''].filter(Boolean).join(' ');}
+  if(QM.unit==='ayat'){
+    // Keterangan ayat tampil tepat di bawah kolom surat+ayat masing-masing, seperti di formulir biasa.
+    const sA=suratNo(g('qmA1')),eRaw=g('qmA3').trim(),sE=eRaw?suratNo(eRaw):sA;
+    const a2=$('qmA2'),a4=$('qmA4'),hs=$('qmHintS'),he=$('qmHintE');
+    if(a2)a2.placeholder=sA?'1-'+AY[sA-1]:'Ayat';
+    if(a4)a4.placeholder=sE?'1-'+AY[sE-1]:'Ayat';
+    if(hs)hs.textContent=$('a-hint-s').textContent;
+    if(he)he.textContent=$('a-hint-e').textContent;
+  }
+  const inf=$('qmInfo');if(inf){if(QM.unit==='ayat')inf.textContent='';else{const a=$('q-hint-s').textContent,b=$('q-hint-e').textContent;inf.textContent=[a?'Awal: '+a:'',b&&b!==a?'Akhir: '+b:''].filter(Boolean).join(' ');}}
 }
 // Letakkan daftar di atas kolom kalau ruang di bawahnya (di atas bar navigasi) tidak cukup.
 function slPlace(anchor,pop){
@@ -7719,7 +7728,7 @@ function qmBuild(){
   '<div style="display:flex;gap:6px;margin-bottom:10px"><button type="button" class="btn small" data-qm-unit="halaman">Halaman</button><button type="button" class="btn small" data-qm-unit="ayat">Ayat</button></div>'+
   '<div class="field"><label for="qmDate">Tanggal</label><input class="input" type="date" id="qmDate" value="'+todayS()+'"></div>'+
   '<div id="qmPage" style="'+grid+'">'+inp('qmP1','Juz awal','1-30')+inp('qmP2','Halaman awal','1-20')+inp('qmP3','Juz akhir','1-30')+inp('qmP4','Halaman akhir','1-20')+'</div>'+
-  '<div id="qmAyat" style="'+grid+'">'+srt('qmA1','Surat awal')+inp('qmA2','Ayat awal','')+srt('qmA3','Surat akhir')+inp('qmA4','Ayat akhir','')+'</div>'+
+  '<div id="qmAyat" style="'+grid+'">'+srt('qmA1','Surat awal')+inp('qmA2','Ayat awal','Ayat')+'<div class="sub2 qhint" id="qmHintS" style="grid-column:1/-1" aria-live="polite"></div>'+srt('qmA3','Surat akhir')+inp('qmA4','Ayat akhir','Ayat')+'<div class="sub2 qhint" id="qmHintE" style="grid-column:1/-1" aria-live="polite"></div>'+'</div>'+
   '<div class="sub2 qhint" id="qmInfo" aria-live="polite"></div>'+
   '<div class="res" id="qmRes" role="status" aria-live="polite"></div>'+
   '<button type="button" class="btn primary block" id="qmSave" style="margin-top:12px">Simpan setoran</button></div>'+
