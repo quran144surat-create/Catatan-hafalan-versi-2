@@ -702,6 +702,8 @@ select.input{appearance:auto;padding-right:6px;text-overflow:ellipsis}
 .sl-it.act{background:var(--surface2)}
 .sl-it.cur{font-weight:700;color:var(--accent-text)}
 .sl-empty{padding:10px 12px;color:var(--muted);font-size:14px}
+.field.has-sl input[readonly]{cursor:pointer}
+.sl-it.clr{color:var(--muted);font-weight:400;font-size:14px}
 .smap{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
 @media (min-width:640px){.smap{grid-template-columns:repeat(10,1fr)}}
 @media (min-width:960px){.smap{grid-template-columns:repeat(6,1fr)}}
@@ -4365,6 +4367,7 @@ function editQuran(id){
       memVer++;updateQ();renderAll();markDirty(qDoc(old),newDoc);
     });
   }});
+  if(ayat)['ed-ss','ed-es'].forEach(slEnhanceSelect);
 }
 function editMatanEntry(id){
   const e=S.matanLog.find(x=>x.id===id);if(!e)return;
@@ -7545,7 +7548,7 @@ function suratNo(t){
 function qmHint(id){
   const v=$(id).value.trim(),h=$(id+'Hint');if(!h)return;
   if(!v){h.textContent='';return;}
-  const n=suratNo(v);h.textContent=n?'Surat '+n+': '+SN[n-1]:'Surat tidak ditemukan. Pilih dari daftar.';
+  const n=suratNo(v);h.textContent=n?'Surat '+n+': '+SN[n-1]:'Pilih surat dari daftar.';
 }
 function qmSync(){
   const box=$('v-qmode');
@@ -7572,6 +7575,74 @@ function qmPreview(){
   res.className=qEl.res.className;res.innerHTML=qEl.res.innerHTML;
   const inf=$('qmInfo');if(inf){const ids=QM.unit==='ayat'?['a-hint-s','a-hint-e']:['q-hint-s','q-hint-e'],a=$(ids[0]).textContent,b=$(ids[1]).textContent;inf.textContent=[a?'Awal: '+a:'',b&&b!==a?'Akhir: '+b:''].filter(Boolean).join(' ');}
 }
+// Letakkan daftar di atas kolom kalau ruang di bawahnya (di atas bar navigasi) tidak cukup.
+function slPlace(anchor,pop){
+  var r=anchor.getBoundingClientRect(),need=Math.min(280,innerHeight*.42)+10,below=innerHeight-r.bottom-84;
+  if(below<need&&r.top>below){pop.style.top='auto';pop.style.bottom='100%';pop.style.margin='0 0 4px';}
+  else{pop.style.top='';pop.style.bottom='';pop.style.margin='';}
+}
+// Pemilih surat dari <select> bawaan browser diganti daftar kustom yang sama,
+// supaya saat dibuka lagi langsung menggulir ke surat terpilih. Elemen <select>
+// tetap dipakai (nilainya tetap dibaca/diisi seperti biasa), hanya popup bawaannya
+// yang diganti.
+function slEnhanceSelect(id){
+  var sel=$(id);if(!sel||sel.dataset.sl)return;sel.dataset.sl='1';
+  var host=sel.parentElement;host.classList.add('has-sl');
+  var pop=document.createElement('div');pop.className='sl-pop';pop.id=id+'Pop';pop.setAttribute('role','listbox');pop.hidden=true;
+  host.appendChild(pop);
+  var act=-1;
+  var btns=function(){return pop.querySelectorAll('.sl-it');};
+  function setAct(i,scroll){
+    var b=btns();if(!b.length)return;
+    if(act>=0&&b[act])b[act].classList.remove('act');
+    act=Math.max(0,Math.min(b.length-1,i));
+    b[act].classList.add('act');
+    if(scroll)b[act].scrollIntoView({block:'nearest'});
+  }
+  function open(){
+    var h='',cv=sel.value;
+    Array.prototype.forEach.call(sel.options,function(o){
+      h+='<button type="button" class="sl-it'+(o.value===cv?' cur':'')+'" role="option" tabindex="-1" data-v="'+esc(o.value)+'" aria-selected="'+(o.value===cv)+'">'+esc(o.textContent)+'</button>';
+    });
+    pop.innerHTML=h;act=-1;
+    slPlace(sel,pop);
+    pop.hidden=false;sel.setAttribute('aria-expanded','true');
+    var cur=pop.querySelector('.cur');
+    if(cur){
+      // Buka langsung di posisi surat terpilih (bukan dari paling atas).
+      pop.scrollTop=Math.max(0,cur.offsetTop-(pop.clientHeight-cur.offsetHeight)/2);
+      setAct(Array.prototype.indexOf.call(btns(),cur),false);
+    }
+  }
+  function close(){pop.hidden=true;sel.setAttribute('aria-expanded','false');act=-1;}
+  function pick(v){
+    sel.value=v;close();
+    sel.dispatchEvent(new Event('input',{bubbles:true}));
+    sel.dispatchEvent(new Event('change',{bubbles:true}));
+    sel.focus();
+  }
+  // Tahan popup bawaan browser; buka daftar kustom sebagai gantinya.
+  sel.addEventListener('mousedown',function(e){e.preventDefault();sel.focus();});
+  sel.addEventListener('click',function(e){e.preventDefault();pop.hidden?open():close();});
+  sel.addEventListener('keydown',function(e){
+    var k=e.key;
+    if(k==='ArrowDown'||k==='ArrowUp'||k==='Enter'||k===' '){
+      e.preventDefault();
+      if(pop.hidden){open();return;}
+      if(k==='Enter'||k===' '){var b=btns()[act];if(b)pick(b.dataset.v);else close();return;}
+      setAct(act<0?0:act+(k==='ArrowDown'?1:-1),true);
+    }else if(k==='Escape'){
+      if(!pop.hidden){e.preventDefault();e.stopPropagation();close();}
+    }else if(k==='Tab'){close();}
+  });
+  pop.addEventListener('mousedown',function(e){e.preventDefault();});
+  pop.addEventListener('click',function(e){var b=e.target.closest('.sl-it');if(b)pick(b.dataset.v);});
+  document.addEventListener('pointerdown',function(e){
+    if(pop.hidden)return;
+    if(e.target===sel||pop.contains(e.target))return;
+    close();
+  });
+}
 // Daftar surat kustom untuk input "Surat awal/akhir" Mode Harian.
 // Pengganti <datalist>: datalist bawaan browser selalu membuka daftar dari
 // paling atas dan tidak bisa diarahkan ke item terpilih. Daftar ini, saat
@@ -7591,7 +7662,7 @@ function slInit(){
       if(scroll)b[act].scrollIntoView({block:'nearest'});
     }
     function build(filter){
-      var cn=curNo(),q=(filter||'').trim().toLowerCase(),h='';
+      var cn=curNo(),q='',h=cn?'<button type="button" class="sl-it clr" role="option" tabindex="-1" data-n="0">Kosongkan pilihan</button>':'';
       for(var n=1;n<=114;n++){
         if(q&&lbl(n).toLowerCase().indexOf(q)<0)continue;
         h+='<button type="button" class="sl-it'+(n===cn?' cur':'')+'" role="option" tabindex="-1" data-n="'+n+'" aria-selected="'+(n===cn)+'">'+n+'. '+esc(SN[n-1])+' <small>('+AY[n-1]+' ayat)</small></button>';
@@ -7601,6 +7672,7 @@ function slInit(){
     }
     function open(filter){
       build(filter);
+      slPlace(inp,pop);
       pop.hidden=false;inp.setAttribute('aria-expanded','true');
       var cur=pop.querySelector('.cur');
       if(cur){
@@ -7611,20 +7683,18 @@ function slInit(){
     }
     function close(){pop.hidden=true;inp.setAttribute('aria-expanded','false');act=-1;}
     function pick(n){
-      inp.value=lbl(n);close();
+      inp.value=n?lbl(n):'';close();
       inp.dispatchEvent(new Event('input',{bubbles:true}));
       inp.dispatchEvent(new Event('change',{bubbles:true}));
     }
-    inp.addEventListener('focus',function(){open(curNo()?'':inp.value);});
-    inp.addEventListener('click',function(){if(pop.hidden)open(curNo()?'':inp.value);});
-    inp.addEventListener('input',function(){open(inp.value);});
+    inp.addEventListener('click',function(){pop.hidden?open(''):close();});
     inp.addEventListener('keydown',function(e){
       if(e.key==='ArrowDown'||e.key==='ArrowUp'){
         e.preventDefault();
-        if(pop.hidden){open(curNo()?'':inp.value);return;}
+        if(pop.hidden){open('');return;}
         setAct(act<0?0:act+(e.key==='ArrowDown'?1:-1),true);
       }else if(e.key==='Enter'){
-        if(!pop.hidden&&act>=0){e.preventDefault();var b=btns()[act];if(b)pick(+b.dataset.n);}
+        e.preventDefault();if(pop.hidden){open('');return;}if(act>=0){var b=btns()[act];if(b)pick(+b.dataset.n);}
       }else if(e.key==='Escape'){
         if(!pop.hidden){e.preventDefault();e.stopPropagation();close();}
       }else if(e.key==='Tab'){close();}
@@ -7640,7 +7710,7 @@ function slInit(){
   });
 }
 function qmBuild(){
-  const box=$('v-qmode'),inp=(id,l,ph)=>'<div class="field"><label for="'+id+'">'+l+'</label><input class="input" type="number" min="1" inputmode="numeric" id="'+id+'" placeholder="'+ph+'"></div>',srt=(id,l)=>'<div class="field has-sl"><label for="'+id+'">'+l+'</label><input class="input" id="'+id+'" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="'+id+'Pop" autocomplete="off" placeholder="Ketik nama atau nomor"><div class="sl-pop" id="'+id+'Pop" role="listbox" hidden></div><div class="mh-note" id="'+id+'Hint" aria-live="polite"></div></div>',grid='display:grid;grid-template-columns:1fr 1fr;gap:8px';
+  const box=$('v-qmode'),inp=(id,l,ph)=>'<div class="field"><label for="'+id+'">'+l+'</label><input class="input" type="number" min="1" inputmode="numeric" id="'+id+'" placeholder="'+ph+'"></div>',srt=(id,l)=>'<div class="field has-sl"><label for="'+id+'">'+l+'</label><input class="input" id="'+id+'" role="combobox" aria-expanded="false" aria-controls="'+id+'Pop" autocomplete="off" readonly inputmode="none" placeholder="Pilih surat"><div class="sl-pop" id="'+id+'Pop" role="listbox" hidden></div><div class="mh-note" id="'+id+'Hint" aria-live="polite"></div></div>',grid='display:grid;grid-template-columns:1fr 1fr;gap:8px';
   box.innerHTML='<header class="vh"><div><h2>Hafalan Quran</h2><p class="sub">Mode harian aktif. Catat setoran per kategori.</p></div></header>'+
   '<div class="panel"><div class="ph"><h3>Progres hari ini</h3></div><div id="qmBars"></div></div>'+
   '<div class="panel" id="qmFormPanel" style="margin-top:16px"><div class="ph" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h3>Catat setoran</h3><button type="button" class="qm-map-btn" id="qmMapBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 4 6v14l5-2 6 2 5-2V4l-5 2-6-2Z"/><path d="M9 4v14M15 6v14"/></svg>Peta hafalan</button></div>'+
@@ -8702,6 +8772,7 @@ function bind(){
   ['a-ss','a-es'].forEach(id=>{const o=document.createElement('option');o.value='';o.textContent='Pilih surat';$(id).insertBefore(o,$(id).firstChild);$(id).value='';});
   {const o=document.createElement('option');o.value='';o.textContent='Pilih surat';$('surSel').insertBefore(o,$('surSel').firstChild);$('surSel').value='';}
   {const o=document.createElement('option');o.value='';o.textContent='Pilih surat';$('surSelEnd').insertBefore(o,$('surSelEnd').firstChild);$('surSelEnd').value='';}
+  ['a-ss','a-es','surSel','surSelEnd'].forEach(slEnhanceSelect);
   const clearPicks=()=>{if(ui.sel||ui.crossRange){ui.sel=null;ui.crossRange=null;ui.juzE=null;ui.selE=null;renderJuz();}if(ui.selA||ui.crossRangeA){ui.selA=null;ui.crossRangeA=null;ui.surahE=null;ui.selAE=null;renderSurat();}};
   ['sj','sp','ej','ep'].forEach(k=>qEl[k].addEventListener('input',()=>{updateQ();clearPicks();}));
   ['sa','ea'].forEach(k=>aEl[k].addEventListener('input',()=>{updateQ();clearPicks();}));
